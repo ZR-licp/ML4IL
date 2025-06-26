@@ -1,0 +1,80 @@
+variable a loop 182
+variable n index 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 273 274 275 276 277 278 279 280 281 282 283 284 285 286 287 288 289 290 291 292 293 294 295 296 297 298 299 300 301 302 303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318 319 320 321 322 323 324 325 326 327 328 329 330 331 332 333 334 335 336 337 338 339 340 341 342 343 344 345 346 347 348 349 350 351 352 353 
+log log.${n}
+
+units           real
+dimension       3
+boundary        p p f
+neighbor        3.0 bin
+neigh_modify    every 1 delay 0 check yes
+atom_style      full
+bond_style      hybrid harmonic
+angle_style     hybrid harmonic
+dihedral_style  hybrid fourier
+improper_style  hybrid cvff
+pair_style      hybrid lj/charmm/coul/long 9.0 10.0 10.0
+kspace_style    pppm 0.0001
+kspace_modify   slab 3.0
+pair_modify     mix arithmetic
+special_bonds   amber
+
+read_data ./mydata/${n}.data extra/atom/types 1
+include system.in.settings
+
+variable xmin equal bound(all,xmin)
+variable xmax equal bound(all,xmax)
+variable ymin equal bound(all,ymin)
+variable ymax equal bound(all,ymax)
+variable zmin equal bound(all,zmin)
+variable zmax equal bound(all,zmax)
+
+variable xlo equal v_xmin-11.421296
+variable ylo equal v_ymin-11.421296
+variable zlo equal v_zmin-11.421296
+variable xhi equal v_xmax+11.421296
+variable yhi equal v_ymax+11.421296
+variable zhi equal v_zmax+200
+variable subzhi equal v_zmin-5.710648
+
+change_box all x final ${xlo} ${xhi} y final ${ylo} ${yhi} z final ${zlo} ${zhi}
+
+region sub block v_xlo v_xhi v_ylo v_yhi v_zlo v_subzhi
+lattice bcc 2.855324
+create_atoms 99 region sub
+
+mass 99 56
+pair_coeff 99 99 lj/charmm/coul/long 12.138 2.321
+
+group sub type 99
+group mol subtract all sub
+
+compute myT mol temp
+compute inter mol group/group sub
+
+thermo 500
+thermo_style custom step c_myT c_inter
+thermo_modify flush yes
+
+timestep 1.0
+velocity mol create 300 1231423 loop local
+
+fix fxnvt mol nvt temp 300 300 100
+
+run 100000
+reset_timestep 0
+variable molcm equal xcm(mol,z)
+variable t equal step/1000
+variable inter equal -1*c_inter
+
+fix  pull    mol smd cvel 20.0 -0.00005 tether NULL NULL 100.0 0.0
+thermo		500
+thermo_style	custom v_t v_inter f_pull[7] v_molcm
+thermo_modify flush yes
+
+run 500000
+
+clear
+next n
+next a
+jump system.in
+
